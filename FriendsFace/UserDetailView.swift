@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct UserDetailView: View {
     let user: User
@@ -45,7 +46,7 @@ struct UserDetailView: View {
                         Text("No friends listed")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(user.friends, id: \.id) { friend in
+                        ForEach(user.friends, id: \.persistentModelID) { friend in
                             Text(friend.name)
                                 .padding(.vertical, 4)
                                 .padding(.horizontal, 12)
@@ -90,23 +91,28 @@ struct UserDetailView: View {
 }
 
 #Preview {
-    NavigationStack {
-        UserDetailView(
-            user: User(
-                id: "1",
-                isActive: true,
-                name: "Taylor Swift",
-                age: 34,
-                company: "Acme",
-                email: "t@example.com",
-                address: "1 Infinite Loop",
-                about: "Sample bio text for preview.",
-                registered: .now,
-                friends: [
-                    Friend(id: "a", name: "Alex"),
-                    Friend(id: "b", name: "Blake")
-                ]
-            )
-        )
+    let schema = Schema([User.self, Friend.self])
+    let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: schema, configurations: [configuration])
+    let user = User(
+        id: "1",
+        isActive: true,
+        name: "Taylor Swift",
+        age: 34,
+        company: "Acme",
+        email: "t@example.com",
+        address: "1 Infinite Loop",
+        about: "Sample bio text for preview.",
+        registered: .now,
+        friends: [
+            Friend(id: "a", name: "Alex"),
+            Friend(id: "b", name: "Blake")
+        ]
+    )
+    user.friends.forEach { $0.user = user }
+
+    return NavigationStack {
+        UserDetailView(user: user)
     }
+    .modelContainer(container)
 }

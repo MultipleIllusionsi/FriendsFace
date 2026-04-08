@@ -6,15 +6,17 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct ContentView: View {
-    @State private var results = [User]()
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \User.name) private var users: [User]
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 4) {
-                    ForEach(results, id: \.id) { item in
+                    ForEach(users, id: \.id) { item in
                         NavigationLink {
                             UserDetailView(user: item)
                         } label: {
@@ -50,24 +52,34 @@ struct ContentView: View {
             .scrollIndicators(.hidden)
             .navigationTitle("Friends list")
             .task {
-                await loadData()
+                await loadRemoteUsersOnceIfStoreIsEmpty()
             }
         }
     }
-    
-    func loadData() async {
-        if !results.isEmpty { return }
-        
-        guard let url = URL(string: "https://www.hackingwithswift.com/samples/friendface.json") else {
-            print("Invalid URL")
-            return
-        }
 
+    @MainActor
+    private func loadRemoteUsersOnceIfStoreIsEmpty() async {
         do {
+            var count = try modelContext.fetchCount(FetchDescriptor<User>())
+            if count > 0 { return }
+
+            guard let url = URL(string: "https://www.hackingwithswift.com/samples/friendface.json") else {
+                print("Invalid URL")
+                return
+            }
+
             let (data, _) = try await URLSession.shared.data(from: url)
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
-            results = try decoder.decode([User].self, from: data)
+            let decoded = try decoder.decode([UserDTO].self, from: data)
+
+            count = try modelContext.fetchCount(FetchDescriptor<User>())
+            if count > 0 { return }
+
+            for dto in decoded {
+                modelContext.insert(User(dto: dto))
+            }
+            try modelContext.save()
         } catch {
             print("Invalid data: \(error)")
         }
@@ -75,5 +87,10 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView()
+    let schema = Schema([User.self, Friend.self])
+    let configuration = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: schema, configurations: [configuration])
+
+    return ContentView()
+        .modelContainer(container)
 }

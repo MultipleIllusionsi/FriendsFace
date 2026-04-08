@@ -7,7 +7,8 @@
 
 import Foundation
 
-struct User: Codable {
+/// JSON payload from the Friendface sample API (decoded once, then stored in SwiftData).
+struct UserDTO: Codable {
     let id: String
     let isActive: Bool
     let name: String
@@ -17,11 +18,10 @@ struct User: Codable {
     let address: String
     let about: String
     let registered: Date
-    let friends: [Friend]
+    let friends: [FriendDTO]
 }
 
-
-struct Friend: Codable {
+struct FriendDTO: Codable {
     let id: String
     let name: String
 }
